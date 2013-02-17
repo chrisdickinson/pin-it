@@ -4,7 +4,7 @@ var pins = {}
   , stack_holder = {}
   , pin_holder
 
-function make_pin_for(name) {
+function make_pin_for(name, obj) {
   var container = document.createElement('div')
     , header = document.createElement('h4')
     , body = document.createElement('pre')
@@ -13,7 +13,7 @@ function make_pin_for(name) {
   container.style.marginBottom = '4px'
   container.appendChild(header)
   container.appendChild(body)
-  header.textContents = header.innerText = name
+  header.textContents = header.innerText = obj && obj.repr ? obj.repr() : name
   body.style.padding = '8px'
 
 
@@ -28,7 +28,7 @@ function make_pin_for(name) {
 
   pin_holder.appendChild(container)
 
-  return pins[name] = {body: body, last: -Infinity}
+  return (pins[name] = pins[name] || []).push({body: body, last: -Infinity, for_object: obj}), pins[name]
 }
 
 function update_pin(item, into, retain, depth) {
@@ -53,12 +53,25 @@ function update_pin(item, into, retain, depth) {
   }  
 }
 
-function pin(item, every) {
-  Error.captureStackTrace(stack_holder)
-  var location = stack_holder.stack.split('\n').slice(2)[0].replace(/^\s+at /g, '')
-    , target = pins[location] || make_pin_for(location)
+function pin(item, every, obj, name) {
+  if(!name) Error.captureStackTrace(stack_holder)
+  var location = name || stack_holder.stack.split('\n').slice(2)[0].replace(/^\s+at /g, '')
+    , target = pins[location] || make_pin_for(location, obj)
     , now = Date.now()
     , every = every || 0
+
+  if(arguments.length < 3) target = target[0]
+  else {
+    for(var i = 0, len = target.length; i < len; ++i) {
+    if(target[i].for_object === obj) {
+      target = target[i]
+      break   
+    }
+  }
+    if(i === len) {
+      pins[location].push(target = make_pin_for(location, obj))
+    }
+  }
 
   if(now - target.last > every) {
     update_pin(item, target.body)
